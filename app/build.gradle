@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.webapp.galaxyiconhtmltoapkbuilderfxoxq'
+    namespace 'com.webapp.galaxyiconhtmltoapkbuildervxsxm'
     compileSdk 34
 
     defaultConfig {
-        applicationId 'com.webapp.galaxyiconhtmltoapkbuilderfxoxq'
+        applicationId 'com.webapp.galaxyiconhtmltoapkbuildervxsxm'
         minSdk 21
         targetSdk 34
         versionCode 1
