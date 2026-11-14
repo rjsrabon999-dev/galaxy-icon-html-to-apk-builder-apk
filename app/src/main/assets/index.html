@@ -113,13 +113,36 @@ iframe{width:100%;height:340px;border:1px solid var(--line);border-radius:12px;b
     <label class="chk"><input type="checkbox" id="fullscreen"> ফুলস্ক্রিন মোড (স্ট্যাটাস বার লুকানো)</label>
     <label>অ্যাপের পারমিশন (সব ডিফল্টভাবে চালু)</label>
     <div class="row" style="gap:0 10px">
-      <label class="chk"><input type="checkbox" checked disabled> ইন্টারনেট</label>
+      <label class="chk"><input type="checkbox" checked onclick="return false"> ইন্টারনেট</label>
       <label class="chk"><input type="checkbox" class="perm" data-p="cam" checked> ক্যামেরা</label>
       <label class="chk"><input type="checkbox" class="perm" data-p="mic" checked> মাইক্রোফোন / ভয়েস</label>
       <label class="chk"><input type="checkbox" class="perm" data-p="loc" checked> লোকেশন</label>
       <label class="chk"><input type="checkbox" class="perm" data-p="sto" checked> ফাইল / মিডিয়া</label>
       <label class="chk"><input type="checkbox" class="perm" data-p="not" checked> নোটিফিকেশন</label>
       <label class="chk"><input type="checkbox" class="perm" data-p="vib" checked> ভাইব্রেশন</label>
+    </div>
+
+    <label class="chk" style="margin-top:14px"><input type="checkbox" id="aiMaster"> 🤖 AI ফোন কন্ট্রোল মোড (কল, SMS, অ্যাপ খোলা, ব্যাকগ্রাউন্ডে চালু)</label>
+    <div id="aiBox" class="hide">
+      <div class="row" style="gap:0 10px">
+        <label class="chk"><input type="checkbox" class="aiopt" data-a="call" checked> কল করা</label>
+        <label class="chk"><input type="checkbox" class="aiopt" data-a="sms" checked> SMS পাঠানো / পড়া</label>
+        <label class="chk"><input type="checkbox" class="aiopt" data-a="con" checked> কন্টাক্ট</label>
+        <label class="chk"><input type="checkbox" class="aiopt" data-a="log" checked> কল লগ</label>
+        <label class="chk"><input type="checkbox" class="aiopt" data-a="voice" checked> ভয়েস কমান্ড</label>
+        <label class="chk"><input type="checkbox" class="aiopt" data-a="bg" checked> ব্যাকগ্রাউন্ড সার্ভিস</label>
+        <label class="chk"><input type="checkbox" class="aiopt" data-a="bubble" checked> ফ্লোটিং AI বাবল</label>
+        <label class="chk"><input type="checkbox" class="aiopt" data-a="a11y" checked> স্ক্রিন কন্ট্রোল</label>
+      </div>
+      <label class="chk"><input type="checkbox" id="aiConfirm" checked> কল/SMS করার আগে "হ্যাঁ/না" নিশ্চিতকরণ</label>
+      <div class="note">
+        ফ্লোটিং বাবল, স্ক্রিন কন্ট্রোল (Accessibility) ও ব্যাটারি সীমা Android নিজে থেকে চালু করতে দেয় না। অ্যাপ প্রথমবার খুললে একটা তালিকা আসবে, সেখান থেকে ফোনের সেটিংসে গিয়ে নিজে চালু করতে হবে। AI যে কাজ করবে তা HTML থেকে নিচের কমান্ডগুলো ডেকে করাতে হবে।
+      </div>
+      <details style="margin-top:10px">
+        <summary style="cursor:pointer;color:var(--mut);font-size:13px">AI-এর HTML থেকে ডাকার কমান্ড তালিকা</summary>
+        <textarea id="aiDoc" readonly style="min-height:260px;margin-top:8px"></textarea>
+        <div class="btns"><button class="sec" id="copyDoc" type="button">📋 কপি করুন</button></div>
+      </details>
     </div>
     <label>অ্যাপ আইকন (ঐচ্ছিক, PNG/JPG)</label>
     <div class="iconrow">
@@ -321,6 +344,57 @@ $("usePaste").onclick = () => {
   setHtml(v, "পেস্ট করা কোড");
 };
 
+/* ---------- AI control panel ---------- */
+$("aiMaster").addEventListener("change", () => $("aiBox").classList.toggle("hide", !$("aiMaster").checked));
+$("aiDoc").value = [
+  "// অ্যাপের ভেতরে window.Android অবজেক্ট পাওয়া যাবে (AI মোড চালু থাকলে)",
+  "// প্রতিটি কমান্ড একটি টেক্সট রেজাল্ট দেয়: ok / no_permission / not_found ...",
+  "",
+  "Android.status()                 // JSON: কোন পারমিশন চালু আছে",
+  "Android.call('017xxxxxxxx')      // কল (নিশ্চিতকরণসহ)",
+  "Android.callContact('রহিম')      // নাম দিয়ে কল",
+  "Android.dial('017xxxxxxxx')      // শুধু ডায়ালার খোলে",
+  "Android.sms('017xxxxxxxx','হাই') // SMS পাঠানো",
+  "Android.findContact('রহিম')      // JSON [{name,number}]",
+  "Android.readSms(5)               // শেষ ৫টি SMS (JSON)",
+  "Android.callLog(5)               // শেষ ৫টি কল (JSON)",
+  "Android.openApp('WhatsApp')      // নাম বা প্যাকেজ দিয়ে অ্যাপ খোলা",
+  "Android.listApps()               // ইনস্টল করা অ্যাপের তালিকা (JSON)",
+  "Android.openUrl('https://...')",
+  "Android.flashlight(true)         // টর্চ চালু/বন্ধ",
+  "Android.setVolume(60)            // ভলিউম ০-১০০",
+  "Android.vibrate(300)",
+  "Android.toast('বার্তা')",
+  "Android.speak('হ্যালো')          // টেক্সট থেকে কথা",
+  "Android.setSpeechLang('bn-BD')",
+  "Android.listen('bn-BD')          // মাইকে শোনে, ফল আসে নিচের ফাংশনে:",
+  "window.onNativeSpeech = text => { /* কমান্ড টেক্সট */ };",
+  "window.onNativeSpeechError = code => { };",
+  "Android.stopListening()",
+  "Android.goHome()                 // হোম স্ক্রিনে যায়",
+  "",
+  "// স্ক্রিন কন্ট্রোল (Accessibility চালু থাকলে):",
+  "Android.screen('back')           // back | home | recents | notifications | quick | lock | screenshot",
+  "Android.tapText('Send')          // স্ক্রিনে লেখা দেখে ট্যাপ",
+  "Android.typeText('হ্যালো')       // ফোকাসে থাকা ঘরে লেখা",
+  "Android.scroll('down')           // down | up",
+  "Android.readScreen()             // স্ক্রিনের লেখা পড়ে",
+  "Android.tap(500, 1200)           // পিক্সেল স্থানাঙ্কে ট্যাপ",
+  "Android.swipe(500,1500,500,500,300)",
+  "",
+  "// সেটিংস ও ব্যাকগ্রাউন্ড:",
+  "Android.openOverlaySettings()",
+  "Android.openAccessibilitySettings()",
+  "Android.openBatterySettings()",
+  "Android.startBackground()  /  Android.stopBackground()"
+].join("\n");
+$("copyDoc").onclick = () => {
+  const t = $("aiDoc"); t.select();
+  try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand("copy"); }
+  $("copyDoc").textContent = "✓ কপি হয়েছে";
+  setTimeout(() => $("copyDoc").textContent = "📋 কপি করুন", 1800);
+};
+
 /* ---------- Icon ---------- */
 function drawTo(canvas, size) {
   canvas.width = canvas.height = size;
@@ -368,7 +442,864 @@ function readConfig() {
   if (!(vc >= 1)) throw new Error("ভার্সন কোড ১ বা তার বেশি হতে হবে");
   const vn = $("vName").value.trim() || "1.0";
   return { name, pkg, color, vc, vn, orient: $("orient").value, full: $("fullscreen").checked, strip: $("stripKeys").checked,
-           perms: Array.from(document.querySelectorAll(".perm:checked")).map(e => e.dataset.p) };
+           perms: Array.from(document.querySelectorAll(".perm:checked")).map(e => e.dataset.p),
+           ai: $("aiMaster").checked,
+           aiOpts: Array.from(document.querySelectorAll(".aiopt:checked")).map(e => e.dataset.a),
+           aiConfirm: $("aiConfirm").checked };
+}
+
+/* ---------- AI phone-control Java sources (only used when AI mode is on) ---------- */
+function aiJava(pkg, confirm) {
+  const bridge = `package ${pkg};
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.database.Cursor;
+import android.hardware.camera2.CameraManager;
+import android.media.AudioManager;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Vibrator;
+import android.provider.CallLog;
+import android.provider.ContactsContract;
+import android.provider.Settings;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
+import android.telephony.SmsManager;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
+import android.widget.Toast;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+public class Bridge {
+
+    private static final boolean CONFIRM = ${confirm};
+
+    private final Activity act;
+    private final WebView web;
+    private TextToSpeech tts;
+    private boolean ttsReady = false;
+    private SpeechRecognizer sr;
+
+    public Bridge(Activity a, WebView w) {
+        act = a;
+        web = w;
+        tts = new TextToSpeech(a, new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                ttsReady = (status == TextToSpeech.SUCCESS);
+            }
+        });
+    }
+
+    private boolean has(String p) {
+        if (Build.VERSION.SDK_INT < 23) return true;
+        return act.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void ui(Runnable r) {
+        act.runOnUiThread(r);
+    }
+
+    private void js(final String code) {
+        ui(new Runnable() {
+            @Override
+            public void run() {
+                web.evaluateJavascript(code, null);
+            }
+        });
+    }
+
+    private void start(final Intent i) {
+        ui(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    act.startActivity(i);
+                } catch (Exception ignored) { }
+            }
+        });
+    }
+
+    private void tn(String m) {
+        Toast.makeText(act, m, Toast.LENGTH_SHORT).show();
+    }
+
+    private void ask(final String msg, final Runnable yes) {
+        if (!CONFIRM) {
+            ui(yes);
+            return;
+        }
+        ui(new Runnable() {
+            @Override
+            public void run() {
+                new AlertDialog.Builder(act)
+                        .setTitle("AI অনুমতি চাইছে")
+                        .setMessage(msg)
+                        .setPositiveButton("হ্যাঁ", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface d, int w) {
+                                yes.run();
+                            }
+                        })
+                        .setNegativeButton("না", null)
+                        .show();
+            }
+        });
+    }
+
+    @JavascriptInterface
+    public String status() {
+        try {
+            JSONObject o = new JSONObject();
+            o.put("call", has("android.permission.CALL_PHONE"));
+            o.put("sms", has("android.permission.SEND_SMS"));
+            o.put("contacts", has("android.permission.READ_CONTACTS"));
+            o.put("callLog", has("android.permission.READ_CALL_LOG"));
+            o.put("mic", has("android.permission.RECORD_AUDIO"));
+            o.put("overlay", Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(act));
+            o.put("accessibility", ControlService.inst != null);
+            return o.toString();
+        } catch (Exception e) {
+            return "{}";
+        }
+    }
+
+    @JavascriptInterface
+    public void toast(final String m) {
+        ui(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(act, m, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    @JavascriptInterface
+    public String call(final String number) {
+        final boolean direct = has("android.permission.CALL_PHONE");
+        ask("কল করবে: " + number, new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Uri u = Uri.parse("tel:" + Uri.encode(number));
+                    act.startActivity(new Intent(direct ? Intent.ACTION_CALL : Intent.ACTION_DIAL, u));
+                } catch (Exception ignored) { }
+            }
+        });
+        return direct ? "calling" : "dialer_opened";
+    }
+
+    @JavascriptInterface
+    public String dial(String number) {
+        start(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(number))));
+        return "ok";
+    }
+
+    @JavascriptInterface
+    public String sms(final String number, final String text) {
+        if (!has("android.permission.SEND_SMS")) return "no_permission";
+        ask("এসএমএস পাঠাবে " + number + " : " + text, new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    SmsManager sm = SmsManager.getDefault();
+                    ArrayList<String> parts = sm.divideMessage(text);
+                    sm.sendMultipartTextMessage(number, null, parts, null, null);
+                    tn("এসএমএস পাঠানো হয়েছে");
+                } catch (Exception e) {
+                    tn("এসএমএস পাঠানো যায়নি");
+                }
+            }
+        });
+        return "ok";
+    }
+
+    @JavascriptInterface
+    public String findContact(String name) {
+        if (!has("android.permission.READ_CONTACTS")) return "no_permission";
+        JSONArray arr = new JSONArray();
+        Cursor c = null;
+        try {
+            c = act.getContentResolver().query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    new String[]{ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                            ContactsContract.CommonDataKinds.Phone.NUMBER},
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " LIKE ?",
+                    new String[]{"%" + name + "%"}, null);
+            while (c != null && c.moveToNext() && arr.length() < 5) {
+                JSONObject o = new JSONObject();
+                o.put("name", c.getString(0));
+                o.put("number", c.getString(1));
+                arr.put(o);
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (c != null) c.close();
+        }
+        return arr.toString();
+    }
+
+    @JavascriptInterface
+    public String callContact(String name) {
+        String r = findContact(name);
+        try {
+            JSONArray a = new JSONArray(r);
+            if (a.length() == 0) return "not_found";
+            return call(a.getJSONObject(0).getString("number"));
+        } catch (Exception e) {
+            return r;
+        }
+    }
+
+    @JavascriptInterface
+    public String openApp(String q) {
+        try {
+            PackageManager pm = act.getPackageManager();
+            Intent li = pm.getLaunchIntentForPackage(q);
+            if (li == null) {
+                Intent main = new Intent(Intent.ACTION_MAIN);
+                main.addCategory(Intent.CATEGORY_LAUNCHER);
+                List<ResolveInfo> list = pm.queryIntentActivities(main, 0);
+                String ql = q.toLowerCase();
+                for (ResolveInfo ri : list) {
+                    String label = String.valueOf(ri.loadLabel(pm)).toLowerCase();
+                    if (label.length() > 0 && (label.contains(ql) || ql.contains(label))) {
+                        li = pm.getLaunchIntentForPackage(ri.activityInfo.packageName);
+                        break;
+                    }
+                }
+            }
+            if (li == null) return "not_found";
+            start(li);
+            return "ok";
+        } catch (Exception e) {
+            return "error";
+        }
+    }
+
+    @JavascriptInterface
+    public String listApps() {
+        JSONArray arr = new JSONArray();
+        try {
+            PackageManager pm = act.getPackageManager();
+            Intent main = new Intent(Intent.ACTION_MAIN);
+            main.addCategory(Intent.CATEGORY_LAUNCHER);
+            for (ResolveInfo ri : pm.queryIntentActivities(main, 0)) {
+                if (arr.length() >= 300) break;
+                JSONObject o = new JSONObject();
+                o.put("name", String.valueOf(ri.loadLabel(pm)));
+                o.put("pkg", ri.activityInfo.packageName);
+                arr.put(o);
+            }
+        } catch (Exception ignored) { }
+        return arr.toString();
+    }
+
+    @JavascriptInterface
+    public String openUrl(String url) {
+        start(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        return "ok";
+    }
+
+    @JavascriptInterface
+    public String flashlight(boolean on) {
+        try {
+            if (Build.VERSION.SDK_INT < 23) return "unsupported";
+            CameraManager cm = (CameraManager) act.getSystemService(Context.CAMERA_SERVICE);
+            String[] ids = cm.getCameraIdList();
+            if (ids.length == 0) return "no_camera";
+            cm.setTorchMode(ids[0], on);
+            return "ok";
+        } catch (Exception e) {
+            return "error";
+        }
+    }
+
+    @JavascriptInterface
+    public String setVolume(int percent) {
+        try {
+            AudioManager am = (AudioManager) act.getSystemService(Context.AUDIO_SERVICE);
+            int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+            int p = Math.max(0, Math.min(100, percent));
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, max * p / 100, AudioManager.FLAG_SHOW_UI);
+            return "ok";
+        } catch (Exception e) {
+            return "error";
+        }
+    }
+
+    @JavascriptInterface
+    public String vibrate(int ms) {
+        try {
+            Vibrator v = (Vibrator) act.getSystemService(Context.VIBRATOR_SERVICE);
+            v.vibrate(Math.max(1, Math.min(ms, 5000)));
+            return "ok";
+        } catch (Exception e) {
+            return "error";
+        }
+    }
+
+    @JavascriptInterface
+    public String speak(String text) {
+        if (!ttsReady) return "tts_not_ready";
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ai");
+        return "ok";
+    }
+
+    @JavascriptInterface
+    public String setSpeechLang(String tag) {
+        try {
+            tts.setLanguage(Locale.forLanguageTag(tag));
+            return "ok";
+        } catch (Exception e) {
+            return "error";
+        }
+    }
+
+    @JavascriptInterface
+    public void listen(final String lang) {
+        ui(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (!SpeechRecognizer.isRecognitionAvailable(act)) {
+                        js("window.onNativeSpeechError && window.onNativeSpeechError('unavailable')");
+                        return;
+                    }
+                    if (!has("android.permission.RECORD_AUDIO")) {
+                        js("window.onNativeSpeechError && window.onNativeSpeechError('no_permission')");
+                        return;
+                    }
+                    if (sr != null) sr.destroy();
+                    sr = SpeechRecognizer.createSpeechRecognizer(act);
+                    sr.setRecognitionListener(new RecognitionListener() {
+                        @Override public void onReadyForSpeech(Bundle params) { }
+                        @Override public void onBeginningOfSpeech() { }
+                        @Override public void onRmsChanged(float rmsdB) { }
+                        @Override public void onBufferReceived(byte[] buffer) { }
+                        @Override public void onEndOfSpeech() { }
+                        @Override public void onPartialResults(Bundle partialResults) { }
+                        @Override public void onEvent(int eventType, Bundle params) { }
+                        @Override
+                        public void onError(int error) {
+                            js("window.onNativeSpeechError && window.onNativeSpeechError('error_" + error + "')");
+                        }
+                        @Override
+                        public void onResults(Bundle results) {
+                            ArrayList<String> r = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                            if (r != null && r.size() > 0) {
+                                js("window.onNativeSpeech && window.onNativeSpeech(" + JSONObject.quote(r.get(0)) + ")");
+                            } else {
+                                js("window.onNativeSpeechError && window.onNativeSpeechError('empty')");
+                            }
+                        }
+                    });
+                    Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                    i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                    i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, (lang == null || lang.length() == 0) ? "bn-BD" : lang);
+                    sr.startListening(i);
+                } catch (Exception ignored) { }
+            }
+        });
+    }
+
+    @JavascriptInterface
+    public void stopListening() {
+        ui(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (sr != null) sr.stopListening();
+                } catch (Exception ignored) { }
+            }
+        });
+    }
+
+    @JavascriptInterface
+    public String readSms(int n) {
+        if (!has("android.permission.READ_SMS")) return "no_permission";
+        int lim = Math.max(1, Math.min(n, 30));
+        JSONArray arr = new JSONArray();
+        Cursor c = null;
+        try {
+            c = act.getContentResolver().query(Uri.parse("content://sms/inbox"),
+                    new String[]{"address", "body", "date"}, null, null, "date DESC");
+            while (c != null && c.moveToNext() && arr.length() < lim) {
+                JSONObject o = new JSONObject();
+                o.put("from", c.getString(0));
+                o.put("text", c.getString(1));
+                o.put("date", c.getLong(2));
+                arr.put(o);
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (c != null) c.close();
+        }
+        return arr.toString();
+    }
+
+    @JavascriptInterface
+    public String callLog(int n) {
+        if (!has("android.permission.READ_CALL_LOG")) return "no_permission";
+        int lim = Math.max(1, Math.min(n, 30));
+        JSONArray arr = new JSONArray();
+        Cursor c = null;
+        try {
+            c = act.getContentResolver().query(CallLog.Calls.CONTENT_URI,
+                    new String[]{CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE, CallLog.Calls.DATE},
+                    null, null, CallLog.Calls.DATE + " DESC");
+            while (c != null && c.moveToNext() && arr.length() < lim) {
+                JSONObject o = new JSONObject();
+                o.put("number", c.getString(0));
+                o.put("name", c.getString(1));
+                o.put("type", c.getInt(2));
+                o.put("date", c.getLong(3));
+                arr.put(o);
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (c != null) c.close();
+        }
+        return arr.toString();
+    }
+
+    @JavascriptInterface
+    public String goHome() {
+        Intent i = new Intent(Intent.ACTION_MAIN);
+        i.addCategory(Intent.CATEGORY_HOME);
+        start(i);
+        return "ok";
+    }
+
+    @JavascriptInterface
+    public String screen(String what) {
+        return ControlService.run(what);
+    }
+
+    @JavascriptInterface
+    public String tapText(String t) {
+        return ControlService.tapText(t);
+    }
+
+    @JavascriptInterface
+    public String typeText(String t) {
+        return ControlService.typeText(t);
+    }
+
+    @JavascriptInterface
+    public String scroll(String dir) {
+        return ControlService.scroll("down".equals(dir));
+    }
+
+    @JavascriptInterface
+    public String readScreen() {
+        return ControlService.readScreen();
+    }
+
+    @JavascriptInterface
+    public String tap(double x, double y) {
+        return ControlService.tap((float) x, (float) y);
+    }
+
+    @JavascriptInterface
+    public String swipe(double x1, double y1, double x2, double y2, int ms) {
+        return ControlService.swipe((float) x1, (float) y1, (float) x2, (float) y2, ms);
+    }
+
+    @JavascriptInterface
+    public String startBackground() {
+        startSvc(act);
+        return "ok";
+    }
+
+    @JavascriptInterface
+    public String stopBackground() {
+        act.stopService(new Intent(act, KeepAliveService.class));
+        return "ok";
+    }
+
+    @JavascriptInterface
+    public void openOverlaySettings() {
+        overlaySettings(act);
+    }
+
+    @JavascriptInterface
+    public void openAccessibilitySettings() {
+        a11ySettings(act);
+    }
+
+    @JavascriptInterface
+    public void openBatterySettings() {
+        batterySettings(act);
+    }
+
+    public static void startSvc(Context c) {
+        try {
+            Intent s = new Intent(c, KeepAliveService.class);
+            if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(s);
+            else c.startService(s);
+        } catch (Exception ignored) { }
+    }
+
+    static void overlaySettings(Activity a) {
+        try {
+            a.startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + a.getPackageName())));
+        } catch (Exception ignored) { }
+    }
+
+    static void a11ySettings(Activity a) {
+        try {
+            a.startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+        } catch (Exception ignored) { }
+    }
+
+    static void batterySettings(Activity a) {
+        try {
+            a.startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:" + a.getPackageName())));
+        } catch (Exception e) {
+            try {
+                a.startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+            } catch (Exception ignored) { }
+        }
+    }
+
+    public static void setupDialog(final Activity a) {
+        final SharedPreferences sp = a.getSharedPreferences("ai_setup", Context.MODE_PRIVATE);
+        if (sp.getBoolean("shown", false)) return;
+        sp.edit().putBoolean("shown", true).apply();
+        final String[] items = new String[]{
+                "ফ্লোটিং বাবল (অন্য অ্যাপের ওপর দেখানো)",
+                "স্ক্রিন কন্ট্রোল (Accessibility চালু করুন)",
+                "ব্যাটারি সীমা তুলুন (ব্যাকগ্রাউন্ডে চালু রাখতে)",
+                "পরে করব"};
+        new AlertDialog.Builder(a)
+                .setTitle("AI কন্ট্রোলের বিশেষ অনুমতি")
+                .setItems(items, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface d, int w) {
+                        if (w == 0) overlaySettings(a);
+                        else if (w == 1) a11ySettings(a);
+                        else if (w == 2) batterySettings(a);
+                    }
+                })
+                .show();
+    }
+}
+`;
+
+  const control = `package ${pkg};
+
+import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.GestureDescription;
+import android.graphics.Path;
+import android.os.Build;
+import android.os.Bundle;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
+import java.util.List;
+
+public class ControlService extends AccessibilityService {
+
+    public static ControlService inst;
+
+    @Override
+    protected void onServiceConnected() {
+        inst = this;
+    }
+
+    @Override
+    public void onAccessibilityEvent(AccessibilityEvent event) { }
+
+    @Override
+    public void onInterrupt() { }
+
+    @Override
+    public boolean onUnbind(android.content.Intent intent) {
+        inst = null;
+        return super.onUnbind(intent);
+    }
+
+    public static String run(String what) {
+        ControlService s = inst;
+        if (s == null) return "accessibility_off";
+        int a;
+        if ("back".equals(what)) a = GLOBAL_ACTION_BACK;
+        else if ("home".equals(what)) a = GLOBAL_ACTION_HOME;
+        else if ("recents".equals(what)) a = GLOBAL_ACTION_RECENTS;
+        else if ("notifications".equals(what)) a = GLOBAL_ACTION_NOTIFICATIONS;
+        else if ("quick".equals(what)) a = GLOBAL_ACTION_QUICK_SETTINGS;
+        else if ("lock".equals(what)) a = GLOBAL_ACTION_LOCK_SCREEN;
+        else if ("screenshot".equals(what)) a = GLOBAL_ACTION_TAKE_SCREENSHOT;
+        else return "unknown_action";
+        return s.performGlobalAction(a) ? "ok" : "failed";
+    }
+
+    public static String tapText(String t) {
+        ControlService s = inst;
+        if (s == null) return "accessibility_off";
+        AccessibilityNodeInfo root = s.getRootInActiveWindow();
+        if (root == null) return "no_window";
+        List<AccessibilityNodeInfo> list = root.findAccessibilityNodeInfosByText(t);
+        if (list == null) return "not_found";
+        for (AccessibilityNodeInfo n : list) {
+            AccessibilityNodeInfo x = n;
+            while (x != null && !x.isClickable()) x = x.getParent();
+            if (x != null && x.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return "ok";
+        }
+        return "not_found";
+    }
+
+    public static String typeText(String t) {
+        ControlService s = inst;
+        if (s == null) return "accessibility_off";
+        AccessibilityNodeInfo root = s.getRootInActiveWindow();
+        if (root == null) return "no_window";
+        AccessibilityNodeInfo f = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+        if (f == null) return "no_input_focused";
+        Bundle b = new Bundle();
+        b.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, t);
+        return f.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, b) ? "ok" : "failed";
+    }
+
+    private static AccessibilityNodeInfo findScrollable(AccessibilityNodeInfo n, int depth) {
+        if (n == null || depth > 30) return null;
+        if (n.isScrollable()) return n;
+        for (int i = 0; i < n.getChildCount(); i++) {
+            AccessibilityNodeInfo r = findScrollable(n.getChild(i), depth + 1);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    public static String scroll(boolean down) {
+        ControlService s = inst;
+        if (s == null) return "accessibility_off";
+        AccessibilityNodeInfo root = s.getRootInActiveWindow();
+        if (root == null) return "no_window";
+        AccessibilityNodeInfo sc = findScrollable(root, 0);
+        if (sc == null) return "no_scrollable";
+        int act = down ? AccessibilityNodeInfo.ACTION_SCROLL_FORWARD : AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD;
+        return sc.performAction(act) ? "ok" : "failed";
+    }
+
+    private static void collect(AccessibilityNodeInfo n, StringBuilder sb, int depth) {
+        if (n == null || sb.length() > 4000 || depth > 30) return;
+        CharSequence t = n.getText();
+        if (t != null && t.length() > 0) sb.append(t).append(" | ");
+        CharSequence d = n.getContentDescription();
+        if (d != null && d.length() > 0) sb.append(d).append(" | ");
+        for (int i = 0; i < n.getChildCount(); i++) collect(n.getChild(i), sb, depth + 1);
+    }
+
+    public static String readScreen() {
+        ControlService s = inst;
+        if (s == null) return "accessibility_off";
+        AccessibilityNodeInfo root = s.getRootInActiveWindow();
+        if (root == null) return "no_window";
+        StringBuilder sb = new StringBuilder();
+        collect(root, sb, 0);
+        return sb.toString();
+    }
+
+    public static String tap(float x, float y) {
+        return gesture(x, y, x, y, 60);
+    }
+
+    public static String swipe(float x1, float y1, float x2, float y2, long ms) {
+        return gesture(x1, y1, x2, y2, ms);
+    }
+
+    private static String gesture(float x1, float y1, float x2, float y2, long ms) {
+        ControlService s = inst;
+        if (s == null) return "accessibility_off";
+        if (Build.VERSION.SDK_INT < 24) return "unsupported";
+        Path p = new Path();
+        p.moveTo(x1, y1);
+        if (x1 != x2 || y1 != y2) p.lineTo(x2, y2);
+        GestureDescription.Builder b = new GestureDescription.Builder();
+        b.addStroke(new GestureDescription.StrokeDescription(p, 0, Math.max(ms, 1)));
+        return s.dispatchGesture(b.build(), null, null) ? "ok" : "failed";
+    }
+}
+`;
+
+  const keep = `package ${pkg};
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.PixelFormat;
+import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
+import android.os.IBinder;
+import android.provider.Settings;
+import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.TextView;
+
+public class KeepAliveService extends Service {
+
+    private WindowManager wm;
+    private View bubble;
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        startFg();
+        showBubble();
+        return START_STICKY;
+    }
+
+    private void startFg() {
+        String ch = "ai_bg";
+        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (Build.VERSION.SDK_INT >= 26) {
+            nm.createNotificationChannel(new NotificationChannel(ch, "AI Assistant", NotificationManager.IMPORTANCE_LOW));
+        }
+        Intent open = new Intent(this, MainActivity.class);
+        open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        int fl = Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
+        PendingIntent pi = PendingIntent.getActivity(this, 0, open, fl);
+        Notification.Builder b = Build.VERSION.SDK_INT >= 26
+                ? new Notification.Builder(this, ch)
+                : new Notification.Builder(this);
+        b.setContentTitle("AI অ্যাসিস্ট্যান্ট চালু আছে");
+        b.setContentText("অ্যাপ খুলতে ট্যাপ করুন");
+        b.setSmallIcon(android.R.drawable.ic_dialog_info);
+        b.setContentIntent(pi);
+        b.setOngoing(true);
+        startForeground(1, b.build());
+    }
+
+    private void showBubble() {
+        if (bubble != null) return;
+        if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(this)) return;
+        wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+        TextView tv = new TextView(this);
+        tv.setText("AI");
+        tv.setTextColor(Color.WHITE);
+        tv.setGravity(Gravity.CENTER);
+        tv.setTextSize(16);
+        GradientDrawable g = new GradientDrawable();
+        g.setShape(GradientDrawable.OVAL);
+        g.setColor(Color.parseColor("#7c5cff"));
+        tv.setBackground(g);
+        int type = Build.VERSION.SDK_INT >= 26
+                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                : WindowManager.LayoutParams.TYPE_PHONE;
+        final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                150, 150, type, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT);
+        lp.gravity = Gravity.TOP | Gravity.START;
+        lp.x = 20;
+        lp.y = 300;
+        tv.setOnTouchListener(new View.OnTouchListener() {
+            int sx, sy;
+            float tx, ty;
+            boolean moved;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent e) {
+                int action = e.getAction();
+                if (action == MotionEvent.ACTION_DOWN) {
+                    sx = lp.x;
+                    sy = lp.y;
+                    tx = e.getRawX();
+                    ty = e.getRawY();
+                    moved = false;
+                    return true;
+                } else if (action == MotionEvent.ACTION_MOVE) {
+                    float dx = e.getRawX() - tx;
+                    float dy = e.getRawY() - ty;
+                    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) moved = true;
+                    lp.x = sx + (int) dx;
+                    lp.y = sy + (int) dy;
+                    wm.updateViewLayout(v, lp);
+                    return true;
+                } else if (action == MotionEvent.ACTION_UP) {
+                    if (!moved) {
+                        Intent i = new Intent(KeepAliveService.this, MainActivity.class);
+                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(i);
+                    }
+                    return true;
+                }
+                return false;
+            }
+        });
+        try {
+            wm.addView(tv, lp);
+            bubble = tv;
+        } catch (Exception ignored) { }
+    }
+
+    @Override
+    public void onDestroy() {
+        try {
+            if (bubble != null && wm != null) wm.removeView(bubble);
+        } catch (Exception ignored) { }
+        bubble = null;
+        super.onDestroy();
+    }
+}
+`;
+
+  const boot = `package ${pkg};
+
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
+
+public class BootReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context c, Intent i) {
+        try {
+            Intent s = new Intent(c, KeepAliveService.class);
+            if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(s);
+            else c.startService(s);
+        } catch (Exception ignored) { }
+    }
+}
+`;
+
+  const a11yXml = `<?xml version="1.0" encoding="utf-8"?>
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeAllMask"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault|flagIncludeNotImportantViews|flagReportViewIds"
+    android:canRetrieveWindowContent="true"
+    android:canPerformGestures="true"
+    android:notificationTimeout="100"
+    android:description="@string/a11y_desc" />
+`;
+  return { bridge, control, keep, boot, a11yXml };
 }
 
 /* ---------- Android project templates ---------- */
@@ -394,7 +1325,66 @@ async function buildProject(cfg) {
   }
   if (ps.has("not")) { px.push(P("POST_NOTIFICATIONS")); want.push(A("POST_NOTIFICATIONS")); }
   if (ps.has("vib")) px.push(P("VIBRATE"));
+  const ao = new Set(cfg.ai ? (cfg.aiOpts || []) : []);
+  const addP = n => { const l = P(n); if (!px.includes(l)) px.push(l); };
+  const addW = n => { if (!want.includes(A(n))) want.push(A(n)); };
+  const needSvc = cfg.ai && (ao.has("bg") || ao.has("bubble"));
+  if (cfg.ai) {
+    addP("VIBRATE"); addP("MODIFY_AUDIO_SETTINGS");
+    if (ao.has("call")) { addP("CALL_PHONE"); addW("CALL_PHONE"); }
+    if (ao.has("sms")) { addP("SEND_SMS"); addP("READ_SMS"); addW("SEND_SMS"); addW("READ_SMS"); }
+    if (ao.has("con")) { addP("READ_CONTACTS"); addW("READ_CONTACTS"); }
+    if (ao.has("log")) { addP("READ_CALL_LOG"); addW("READ_CALL_LOG"); }
+    if (ao.has("voice")) { addP("RECORD_AUDIO"); addW("RECORD_AUDIO"); }
+    if (needSvc) { addP("FOREGROUND_SERVICE"); addP("FOREGROUND_SERVICE_SPECIAL_USE"); addP("POST_NOTIFICATIONS"); addW("POST_NOTIFICATIONS"); }
+    if (ao.has("bg")) { addP("RECEIVE_BOOT_COMPLETED"); addP("REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"); }
+    if (ao.has("bubble")) addP("SYSTEM_ALERT_WINDOW");
+    px.push('<queries><intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent></queries>');
+  }
   const permXml = px.join("\n    ");
+  let svcXml = "";
+  if (cfg.ai && ao.has("a11y")) {
+    svcXml += `
+        <service
+            android:name=".ControlService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_config" />
+        </service>
+`;
+  }
+  if (needSvc) {
+    svcXml += `
+        <service
+            android:name=".KeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="personal_ai_assistant" />
+        </service>
+`;
+  }
+  if (cfg.ai && ao.has("bg")) {
+    svcXml += `
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+`;
+  }
+  const aiInit = cfg.ai ? 'web.addJavascriptInterface(new Bridge(this, web), "Android");' : "";
+  const aiLoad = cfg.ai
+    ? (needSvc ? "Bridge.startSvc(this);\n        " : "") +
+      "new android.os.Handler().postDelayed(new Runnable() { public void run() { Bridge.setupDialog(MainActivity.this); } }, 2500);"
+    : "";
   const wantArr = "new String[]{" + want.map(v => JSON.stringify(v)).join(", ") + "}";
   const files = [];
   const T = (path, text) => files.push({ name: path, data: enc.encode(text) });
@@ -473,6 +1463,7 @@ tasks.withType(JavaCompile) {
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+${svcXml}
     </application>
 </manifest>
 `);
@@ -480,6 +1471,7 @@ tasks.withType(JavaCompile) {
 `<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">${xe(cfg.name)}</string>
+    <string name="a11y_desc">AI ফোন কন্ট্রোল (আপনার নির্দেশে স্ক্রিনে ট্যাপ, স্ক্রল ও নেভিগেশন)</string>
 </resources>
 `);
   T("app/src/main/java/" + pkgPath + "/MainActivity.java",
@@ -643,6 +1635,7 @@ public class MainActivity extends Activity {
             }
         });
 
+        ${aiInit}
         startFlow();
     }
 
@@ -676,6 +1669,7 @@ public class MainActivity extends Activity {
     private void loadApp() {
         if (started) return;
         started = true;
+        ${aiLoad}
         if (PH.length == 0) {
             web.loadUrl("file:///android_asset/index.html");
         } else {
@@ -790,6 +1784,15 @@ public class MainActivity extends Activity {
     }
 }
 `);
+  if (cfg.ai) {
+    const j = aiJava(cfg.pkg, !!cfg.aiConfirm);
+    const base = "app/src/main/java/" + pkgPath + "/";
+    T(base + "Bridge.java", j.bridge);
+    T(base + "ControlService.java", j.control);
+    T(base + "KeepAliveService.java", j.keep);
+    T(base + "BootReceiver.java", j.boot);
+    T("app/src/main/res/xml/accessibility_config.xml", j.a11yXml);
+  }
   files.push({ name: "app/src/main/assets/index.html", data: enc.encode(stripSecrets(prepared(), secrets)) });
 
   const sizes = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
