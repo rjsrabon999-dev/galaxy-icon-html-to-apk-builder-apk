@@ -111,6 +111,16 @@ iframe{width:100%;height:340px;border:1px solid var(--line);border-radius:12px;b
       <div><label>স্ট্যাটাস বার রং</label><input type="text" id="color" value="#0f172a" maxlength="7"></div>
     </div>
     <label class="chk"><input type="checkbox" id="fullscreen"> ফুলস্ক্রিন মোড (স্ট্যাটাস বার লুকানো)</label>
+    <label>অ্যাপের পারমিশন (সব ডিফল্টভাবে চালু)</label>
+    <div class="row" style="gap:0 10px">
+      <label class="chk"><input type="checkbox" checked disabled> ইন্টারনেট</label>
+      <label class="chk"><input type="checkbox" class="perm" data-p="cam" checked> ক্যামেরা</label>
+      <label class="chk"><input type="checkbox" class="perm" data-p="mic" checked> মাইক্রোফোন / ভয়েস</label>
+      <label class="chk"><input type="checkbox" class="perm" data-p="loc" checked> লোকেশন</label>
+      <label class="chk"><input type="checkbox" class="perm" data-p="sto" checked> ফাইল / মিডিয়া</label>
+      <label class="chk"><input type="checkbox" class="perm" data-p="not" checked> নোটিফিকেশন</label>
+      <label class="chk"><input type="checkbox" class="perm" data-p="vib" checked> ভাইব্রেশন</label>
+    </div>
     <label>অ্যাপ আইকন (ঐচ্ছিক, PNG/JPG)</label>
     <div class="iconrow">
       <canvas id="iconPrev" width="96" height="96"></canvas>
@@ -357,7 +367,8 @@ function readConfig() {
   if (!/^#[0-9a-fA-F]{6}$/.test(color)) throw new Error("রং #RRGGBB ফরম্যাটে দিন, যেমন #0f172a");
   if (!(vc >= 1)) throw new Error("ভার্সন কোড ১ বা তার বেশি হতে হবে");
   const vn = $("vName").value.trim() || "1.0";
-  return { name, pkg, color, vc, vn, orient: $("orient").value, full: $("fullscreen").checked, strip: $("stripKeys").checked };
+  return { name, pkg, color, vc, vn, orient: $("orient").value, full: $("fullscreen").checked, strip: $("stripKeys").checked,
+           perms: Array.from(document.querySelectorAll(".perm:checked")).map(e => e.dataset.p) };
 }
 
 /* ---------- Android project templates ---------- */
@@ -365,8 +376,26 @@ async function buildProject(cfg) {
   const slug = slugify(cfg.name);
   const pkgPath = cfg.pkg.replace(/\./g, "/");
   const secrets = cfg.strip ? scanSecrets(htmlText) : [];
-  const phArr = "new String[]{" + secrets.map((v, i) => JSON.stringify(phName(i))).join(", ") + "}";
+  const phArr ="new String[]{" + secrets.map((v, i) => JSON.stringify(phName(i))).join(", ") + "}";
   const hintArr = "new String[]{" + secrets.map(v => JSON.stringify("API Key (" + v.slice(0, 4) + "****)")).join(", ") + "}";
+  const ps = new Set(cfg.perms || []);
+  const P = n => '<uses-permission android:name="android.permission.' + n + '" />';
+  const PM = (n, mx) => '<uses-permission android:name="android.permission.' + n + '" android:maxSdkVersion="' + mx + '" />';
+  const F = n => '<uses-feature android:name="android.hardware.' + n + '" android:required="false" />';
+  const px = [P("INTERNET"), P("ACCESS_NETWORK_STATE"), P("WAKE_LOCK")];
+  const want = [];
+  const A = n => "android.permission." + n;
+  if (ps.has("cam")) { px.push(P("CAMERA"), F("camera"), F("camera.autofocus")); want.push(A("CAMERA")); }
+  if (ps.has("mic")) { px.push(P("RECORD_AUDIO"), P("MODIFY_AUDIO_SETTINGS"), F("microphone")); want.push(A("RECORD_AUDIO")); }
+  if (ps.has("loc")) { px.push(P("ACCESS_FINE_LOCATION"), P("ACCESS_COARSE_LOCATION"), F("location"), F("location.gps")); want.push(A("ACCESS_FINE_LOCATION"), A("ACCESS_COARSE_LOCATION")); }
+  if (ps.has("sto")) {
+    px.push(PM("READ_EXTERNAL_STORAGE", 32), PM("WRITE_EXTERNAL_STORAGE", 29), P("READ_MEDIA_IMAGES"), P("READ_MEDIA_VIDEO"), P("READ_MEDIA_AUDIO"));
+    want.push(A("READ_EXTERNAL_STORAGE"), A("WRITE_EXTERNAL_STORAGE"), A("READ_MEDIA_IMAGES"), A("READ_MEDIA_VIDEO"), A("READ_MEDIA_AUDIO"));
+  }
+  if (ps.has("not")) { px.push(P("POST_NOTIFICATIONS")); want.push(A("POST_NOTIFICATIONS")); }
+  if (ps.has("vib")) px.push(P("VIBRATE"));
+  const permXml = px.join("\n    ");
+  const wantArr = "new String[]{" + want.map(v => JSON.stringify(v)).join(", ") + "}";
   const files = [];
   const T = (path, text) => files.push({ name: path, data: enc.encode(text) });
 
@@ -424,7 +453,7 @@ tasks.withType(JavaCompile) {
 `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-permission android:name="android.permission.INTERNET" />
+    ${permXml}
 
     <application
         android:allowBackup="true"
@@ -459,6 +488,13 @@ tasks.withType(JavaCompile) {
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.DownloadManager;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Environment;
+import android.webkit.GeolocationPermissions;
+import android.webkit.PermissionRequest;
+import android.webkit.URLUtil;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.widget.EditText;
@@ -484,6 +520,10 @@ public class MainActivity extends Activity {
     private static final int FILE_CHOOSER = 1001;
     private static final String[] PH = ${phArr};
     private static final String[] HINT = ${hintArr};
+    private static final String[] WANT = ${wantArr};
+
+    private boolean started = false;
+    private PermissionRequest pendingReq;
 
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
@@ -516,6 +556,7 @@ public class MainActivity extends Activity {
         s.setBuiltInZoomControls(false);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
+        s.setGeolocationEnabled(true);
 
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -546,21 +587,95 @@ public class MainActivity extends Activity {
                 }
                 return true;
             }
+
+            @Override
+            public void onPermissionRequest(final PermissionRequest req) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        java.util.ArrayList<String> need = new java.util.ArrayList<String>();
+                        for (String r : req.getResources()) {
+                            String p = null;
+                            if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) p = "android.permission.CAMERA";
+                            else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) p = "android.permission.RECORD_AUDIO";
+                            if (p != null && Build.VERSION.SDK_INT >= 23
+                                    && MainActivity.this.checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) {
+                                need.add(p);
+                            }
+                        }
+                        if (need.isEmpty()) {
+                            req.grant(req.getResources());
+                        } else {
+                            pendingReq = req;
+                            MainActivity.this.requestPermissions(need.toArray(new String[0]), 2002);
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback cb) {
+                cb.invoke(origin, true, false);
+            }
         });
 
         web.setDownloadListener(new DownloadListener() {
             @Override
             public void onDownloadStart(String url, String ua, String cd, String mime, long len) {
                 try {
-                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-                } catch (Exception ignored) { }
+                    if (url.startsWith("http")) {
+                        DownloadManager.Request r = new DownloadManager.Request(Uri.parse(url));
+                        r.setMimeType(mime);
+                        r.addRequestHeader("User-Agent", ua);
+                        String ck = android.webkit.CookieManager.getInstance().getCookie(url);
+                        if (ck != null) r.addRequestHeader("Cookie", ck);
+                        r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                        r.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(url, cd, mime));
+                        ((DownloadManager) getSystemService(DOWNLOAD_SERVICE)).enqueue(r);
+                    } else {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                    }
+                } catch (Exception e) {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                    } catch (Exception ignored) { }
+                }
             }
         });
 
+        startFlow();
+    }
+
+    private void startFlow() {
+        if (Build.VERSION.SDK_INT >= 23 && WANT.length > 0) {
+            java.util.ArrayList<String> need = new java.util.ArrayList<String>();
+            for (String p : WANT) {
+                if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) need.add(p);
+            }
+            if (!need.isEmpty()) {
+                requestPermissions(need.toArray(new String[0]), 2001);
+                return;
+            }
+        }
         loadApp();
     }
 
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(code, perms, res);
+        if (code == 2001) {
+            loadApp();
+        } else if (code == 2002 && pendingReq != null) {
+            boolean ok = res.length > 0;
+            for (int r : res) if (r != PackageManager.PERMISSION_GRANTED) ok = false;
+            if (ok) pendingReq.grant(pendingReq.getResources()); else pendingReq.deny();
+            pendingReq = null;
+        }
+    }
+
     private void loadApp() {
+        if (started) return;
+        started = true;
         if (PH.length == 0) {
             web.loadUrl("file:///android_asset/index.html");
         } else {
